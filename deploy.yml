@@ -39,4 +39,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ${{ secrets.HOSTINGER_PATH }}
-            git clone ${{ secrets.FILE_LOCATION}}
+            composer install --no-dev
+            php artisan migrate --force
+            php artisan optimize
