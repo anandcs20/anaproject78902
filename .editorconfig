@@ -1,0 +1,41 @@
+# Top-level EditorConfig file
+root = true
+
+# Default for all files
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Blade templates
+[*.blade.php]
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# PHP files
+[*.php]
+indent_size = 4
+indent_style = space
+
+# JavaScript, JSON, and CSS/SCSS
+[*.{js,json,css,scss}]
+indent_size = 2
+indent_style = space
+
+# YAML files (e.g. GitHub actions, Docker)
+[*.{yml,yaml}]
+indent_size = 2
+
+# Docker Compose file
+[compose.yaml]
+indent_size = 4
+
+# Markdown files (avoid trimming useful trailing spaces)
+[*.md]
+trim_trailing_whitespace = false
+insert_final_newline = true
