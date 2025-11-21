@@ -39,4 +39,4 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ${{ secrets.HOSTINGER_PATH }}
-            git clone https://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@github.com/anandcs20/anaproject78902.git
+            git clone ${{ secrets.FILE_LOCATION}}
