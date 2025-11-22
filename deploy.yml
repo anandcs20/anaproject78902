@@ -15,7 +15,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.2"
+          php-version: "8.3"
           extensions: mbstring, bcmath, intl
           coverage: none
 
@@ -53,3 +53,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ${{ secrets.HOSTINGER_PATH }}
+            composer update --no-dev --optimize-autoloader
+            php artisan migrate --force
+            php artisan storage:link
+            php artisan optimize:clear
+            php artisan optimize
+            echo "👍 Deployment Completed Successfully!"
