@@ -53,9 +53,3 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ${{ secrets.HOSTINGER_PATH }}
-            composer install --no-dev --optimize-autoloader
-            php artisan migrate --force
-            php artisan storage:link
-            php artisan optimize:clear
-            php artisan optimize
-            echo "👍 Deployment Completed Successfully!"
