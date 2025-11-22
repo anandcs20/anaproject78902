@@ -50,6 +50,8 @@ jobs:
         run: |
           ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }} "
           cd ${{ secrets.HOSTINGER_PATH }} &&
+          git reset --hard HEAD &&
+          git clean -fd &&
           git pull origin main &&
           composer install --no-dev --optimize-autoloader &&
           php artisan migrate --force &&
