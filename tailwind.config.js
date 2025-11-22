@@ -16,6 +16,8 @@ export default {
             },
           spacing: {
         header: "80px",
+        "app-menu": "300px",   // set value you want
+        "app-menu-sm": "200px" // or another size that fits your layout
       },
         },
     },
