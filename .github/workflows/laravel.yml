@@ -51,10 +51,15 @@ jobs:
       - name: Run Laravel Commands on server
         run: |
           ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }} "
-          cd ${{ secrets.HOSTINGER_PATH }} &&
+          cd ${{ secrets.SSH_PATH }} &&
           composer install --no-dev --optimize-autoloader &&
           php artisan migrate --force &&
-          php artisan storage:link &&
-          php artisan optimize:clear &&
-          php artisan optimize
+          php artisan storage:link ||
+          true &&
+          php artisan config:clear &&
+          php artisan route:clear &&
+          php artisan view:clear &&
+          php artisan cache:clear &&
+          php artisan config:cache &&
+          php artisan route:cache
           "
