@@ -48,14 +48,17 @@ jobs:
           --exclude "storage/framework/cache/data" \
           ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }}:${{ secrets.HOSTINGER_PATH }}
 
-      - name: Run Laravel Commands on server
+      - name: Deploy to Hostinger
         run: |
           ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }} "
           cd ${{ secrets.HOSTINGER_PATH }} &&
+          git pull origin main &&
           composer install --no-dev --optimize-autoloader &&
           php artisan migrate --force &&
           php artisan config:clear &&
+          php artisan cache:clear &&
           php artisan route:clear &&
           php artisan view:clear &&
-          php artisan cache:clear
+          chmod -R 775 storage &&
+          chmod -R 775 bootstrap/cache
           "
