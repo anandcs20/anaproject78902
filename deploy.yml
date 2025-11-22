@@ -19,7 +19,7 @@ jobs:
           extensions: mbstring, intl, bcmath, pdo_mysql, fileinfo
 
       - name: Install Composer dependencies
-        run: composer install --no-dev --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+        run: composer update --no-dev --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
       - name: Build frontend (if using Vite)
         run: |
@@ -48,7 +48,7 @@ jobs:
         run: |
           ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
           cd ${{ secrets.HOSTINGER_PATH }} &&
-          composer install --no-dev --optimize-autoloader &&
+          composer update &&
           php artisan migrate --force &&
           php artisan optimize
           "
