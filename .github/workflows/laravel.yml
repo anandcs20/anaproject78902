@@ -1,4 +1,4 @@
-name: Laravel Deploy to Hostinger
+name: Laravel Deploy to Hostinger (Production)
 
 on:
   push:
@@ -18,91 +18,58 @@ jobs:
           php-version: 8.3
           extensions: mbstring, intl, bcmath, pdo_mysql, fileinfo
 
-      - name: Install Composer dependencies
-        run: composer update
+      - name: Install Composer dependencies (Production)
+        run: composer install --no-dev --prefer-dist --optimize-autoloader
 
-      - name: Build frontend (if using Vite)
+      - name: Build Frontend (if using Vite)
         run: |
           if [ -f package.json ]; then
             npm install
             npm run build
           fi
 
-      - name: Setup SSH key
+      - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.HOSTINGER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to Hostinger Server
+      - name: Deploy to Hostinger with Rsync (Zero Downtime)
         run: |
+          ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
+          mkdir -p ${{ secrets.HOSTINGER_PATH }}/release"
+          
           rsync -avz --delete \
           --exclude ".git" \
           --exclude ".github" \
           --exclude "node_modules" \
           --exclude "tests" \
-          ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}:${{ secrets.HOSTINGER_PATH }}
+          --exclude "storage" \
+          ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}:${{ secrets.HOSTINGER_PATH }}/release
 
-      - name: Run Laravel commands on server
-        run: |name: Laravel Deploy to Hostinger
-
-on:
-  push:
-    branches: ["main"]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP 8.3
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.3
-          extensions: mbstring, intl, bcmath, pdo_mysql, fileinfo
-
-      - name: Install Composer dependencies
-        run: composer update
-
-      - name: Build frontend (if using Vite)
-        run: |
-          if [ -f package.json ]; then
-            npm install
-            npm run build
-          fi
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.HOSTINGER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy to Hostinger Server
-        run: |
-          rsync -avz --delete \
-          --exclude ".git" \
-          --exclude ".github" \
-          --exclude "node_modules" \
-          --exclude "tests" \
-          ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}:${{ secrets.HOSTINGER_PATH }}
-
-      - name: Run Laravel commands on server
+      - name: Finalize Deployment
         run: |
           ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
           cd ${{ secrets.HOSTINGER_PATH }} &&
-          composer update &&
-          php artisan migrate --force &&
-          php artisan optimize
-          "
+          
+          php artisan down || true &&
 
-          ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
-          cd ${{ secrets.HOSTINGER_PATH }} &&
-          composer update &&
+          cp -r release/vendor . &&
+          cp -r release/storage . &&
+
+          cd release &&
+
+          composer install --no-dev --prefer-dist --optimize-autoloader &&
           php artisan migrate --force &&
-          php artisan optimize
+          php artisan optimize &&
+          php artisan optimize:clear &&
+          php artisan config:cache &&
+          php artisan route:cache &&
+          php artisan view:cache &&
+
+          rm -rf current &&
+          mv release current &&
+
+          php artisan up
           "
