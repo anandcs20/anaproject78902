@@ -2,7 +2,7 @@ name: Laravel Deploy to Hostinger (Production)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main"] # your deployment branch
 
 jobs:
   deploy:
@@ -15,6 +15,7 @@ jobs:
       - name: Setup PHP 8.3
         uses: shivammathur/setup-php@v2
         with:
+<<<<<<< HEAD
           php-version: 8.3
           extensions: mbstring, intl, bcmath, pdo_mysql, fileinfo
 
@@ -36,11 +37,31 @@ jobs:
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.HOSTINGER_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to Hostinger with Rsync (Zero Downtime)
+=======
+          php-version: "8.2"
+
+      - name: Install Dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader
+
+      - name: Generate optimized build
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+      - name: Test SSH Connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }} "echo SSH Connection Successful"
+
+      - name: Deploy with Rsync
+>>>>>>> b3dd381ce6c4b6db5cd37d96e69d16821ab86ad1
         run: |
           ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
           mkdir -p ${{ secrets.HOSTINGER_PATH }}/release"
 
           rsync -avz --delete \
+<<<<<<< HEAD
           --exclude ".git" \
           --exclude ".github" \
           --exclude "node_modules" \
@@ -66,4 +87,16 @@ jobs:
           rm -rf current &&
           mv release current &&
           php artisan up
+=======
+            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 65002" \
+            ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }}:/home/${{ secrets.HOSTINGER_USER }}/domains/best5k.in/public_html/
+
+      - name: Final Commands on Host
+        run: |
+          ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }} "
+          cd /home/${{ secrets.HOSTINGER_USER }}/domains/best5k.in/public_html/ &&
+          composer install --no-dev --optimize-autoloader &&
+          php artisan migrate --force &&
+          php artisan optimize
+>>>>>>> b3dd381ce6c4b6db5cd37d96e69d16821ab86ad1
           "
