@@ -1,4 +1,4 @@
-name: Deploy Laravel to Hostinger
+name: Laravel Deploy to Hostinger (Production)
 
 on:
   push:
@@ -9,56 +9,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Setup PHP
+      - name: Setup PHP 8.3
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
-          extensions: mbstring, intl, bcmath, gd, pdo_mysql, xml, ctype, fileinfo
-          coverage: none
+          php-version: 8.3
+          extensions: mbstring, intl, bcmath, pdo_mysql, fileinfo
 
-      - name: Install Composer Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      - name: Install Composer dependencies (Production)
+        run: composer install --no-dev --prefer-dist --optimize-autoloader
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "18"
-
-      - name: Install and Build Frontend Assets
+      - name: Build Frontend (if using Vite)
         run: |
-          npm install
-          npm run build
+          if [ -f package.json ]; then
+            npm install
+            npm run build
+          fi
 
-      - name: Configure SSH
+      - name: Add SSH Known Hosts
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.HOSTINGER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy using rsync
+      - name: Deploy to Hostinger with Rsync (Zero Downtime)
         run: |
+          ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
+          mkdir -p ${{ secrets.HOSTINGER_PATH }}/release"
+
           rsync -avz --delete \
           --exclude ".git" \
+          --exclude ".github" \
           --exclude "node_modules" \
-          ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }}:${{ secrets.HOSTINGER_PATH }}
+          --exclude "tests" \
+          --exclude "storage" \
+          ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}:${{ secrets.HOSTINGER_PATH }}/release
 
-      - name: Deploy to Hostinger
+      - name: Finalize Deployment
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }} "
+          ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
           cd ${{ secrets.HOSTINGER_PATH }} &&
-          git reset --hard HEAD &&
-          git clean -fd &&
-          git pull origin main &&
-          composer install --no-dev --optimize-autoloader &&
+          php artisan down || true &&
+          cp -r release/vendor . &&
+          cp -r release/storage . &&
+          cd release &&
+          composer install --no-dev --prefer-dist --optimize-autoloader &&
           php artisan migrate --force &&
-          php artisan config:clear &&
-          php artisan cache:clear &&
-          php artisan route:clear &&
-          php artisan view:clear &&
-          chmod -R 775 storage &&
-          chmod -R 775 bootstrap/cache
+          php artisan optimize &&
+          php artisan optimize:clear &&
+          php artisan config:cache &&
+          php artisan route:cache &&
+          php artisan view:cache &&
+          rm -rf current &&
+          mv release current &&
+          php artisan up
           "
