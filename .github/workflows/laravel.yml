@@ -1,102 +1,61 @@
-name: Laravel Deploy to Hostinger (Production)
+name: Deploy Laravel to Hostinger
 
 on:
   push:
-    branches: ["main"] # your deployment branch
+    branches: ["main"]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Setup PHP 8.3
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-<<<<<<< HEAD
-          php-version: 8.3
-          extensions: mbstring, intl, bcmath, pdo_mysql, fileinfo
+          php-version: "8.3"
+          extensions: mbstring, intl, bcmath, gd, pdo_mysql, xml, ctype, fileinfo
+          coverage: none
 
-      - name: Install Composer dependencies (Production)
-        run: composer install --no-dev --prefer-dist --optimize-autoloader
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Build Frontend (if using Vite)
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install and Build Frontend Assets
         run: |
-          if [ -f package.json ]; then
-            npm install
-            npm run build
-          fi
+          npm install
+          npm run build
 
-      - name: Add SSH Known Hosts
+      - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.HOSTINGER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_IP }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to Hostinger with Rsync (Zero Downtime)
-=======
-          php-version: "8.2"
-
-      - name: Install Dependencies
+      - name: Deploy using rsync
         run: |
-          composer install --no-dev --optimize-autoloader
-
-      - name: Generate optimized build
-        run: |
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
-
-      - name: Test SSH Connection
-        run: |
-          ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }} "echo SSH Connection Successful"
-
-      - name: Deploy with Rsync
->>>>>>> b3dd381ce6c4b6db5cd37d96e69d16821ab86ad1
-        run: |
-          ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
-          mkdir -p ${{ secrets.HOSTINGER_PATH }}/release"
-
-          rsync -avz --delete \
-<<<<<<< HEAD
+          rsync -avz --delete -e "ssh -p ${{ secrets.SSH_PORT }}" \
           --exclude ".git" \
           --exclude ".github" \
           --exclude "node_modules" \
-          --exclude "tests" \
-          --exclude "storage" \
-          ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }}:${{ secrets.HOSTINGER_PATH }}/release
+          --exclude "storage/framework/cache/data" \
+          ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }}:${{ secrets.HOSTINGER_PATH }}
 
-      - name: Finalize Deployment
+      - name: Run Laravel Commands on server
         run: |
-          ssh ${{ secrets.HOSTINGER_USER }}@${{ secrets.HOSTINGER_HOST }} "
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }} "
           cd ${{ secrets.HOSTINGER_PATH }} &&
-          php artisan down || true &&
-          cp -r release/vendor . &&
-          cp -r release/storage . &&
-          cd release &&
-          composer install --no-dev --prefer-dist --optimize-autoloader &&
-          php artisan migrate --force &&
-          php artisan optimize &&
-          php artisan optimize:clear &&
-          php artisan config:cache &&
-          php artisan route:cache &&
-          php artisan view:cache &&
-          rm -rf current &&
-          mv release current &&
-          php artisan up
-=======
-            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 65002" \
-            ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }}:/home/${{ secrets.HOSTINGER_USER }}/domains/best5k.in/public_html/
-
-      - name: Final Commands on Host
-        run: |
-          ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }} "
-          cd /home/${{ secrets.HOSTINGER_USER }}/domains/best5k.in/public_html/ &&
           composer install --no-dev --optimize-autoloader &&
           php artisan migrate --force &&
-          php artisan optimize
->>>>>>> b3dd381ce6c4b6db5cd37d96e69d16821ab86ad1
+          php artisan config:clear &&
+          php artisan route:clear &&
+          php artisan view:clear &&
+          php artisan cache:clear
           "
