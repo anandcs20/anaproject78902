@@ -2,7 +2,7 @@ name: Deploy Laravel to Hostinger
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main"] # your deployment branch
 
 jobs:
   deploy:
@@ -15,50 +15,33 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
-          extensions: mbstring, intl, bcmath, gd, pdo_mysql, xml, ctype, fileinfo
-          coverage: none
+          php-version: "8.2"
 
-      - name: Install Composer Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: "18"
-
-      - name: Install and Build Frontend Assets
+      - name: Install Dependencies
         run: |
-          npm install
-          npm run build
+          composer install --no-dev --optimize-autoloader
 
-      - name: Configure SSH
+      - name: Generate optimized build
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_IP }} >> ~/.ssh/known_hosts
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
 
-      - name: Deploy using rsync
+      - name: Test SSH Connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }} "echo SSH Connection Successful"
+
+      - name: Deploy with Rsync
         run: |
           rsync -avz --delete \
-          --exclude ".git" \
-          --exclude "node_modules" \
-          ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }}:${{ secrets.HOSTINGER_PATH }}
+            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 65002" \
+            ./ ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }}:/home/${{ secrets.HOSTINGER_USER }}/domains/best5k.in/public_html/
 
-      - name: Deploy to Hostinger
+      - name: Final Commands on Host
         run: |
-          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_IP }} "
-          cd ${{ secrets.HOSTINGER_PATH }} &&
-          git reset --hard HEAD &&
-          git clean -fd &&
-          git pull origin main &&
+          ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.HOSTINGER_USER }}@${{ secrets.SSH_HOST }} "
+          cd /home/${{ secrets.HOSTINGER_USER }}/domains/best5k.in/public_html/ &&
           composer install --no-dev --optimize-autoloader &&
           php artisan migrate --force &&
-          php artisan config:clear &&
-          php artisan cache:clear &&
-          php artisan route:clear &&
-          php artisan view:clear &&
-          chmod -R 775 storage &&
-          chmod -R 775 bootstrap/cache
+          php artisan optimize
           "
